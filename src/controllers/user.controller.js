@@ -3,7 +3,7 @@ import { User } from "../models/user.models.js";
 import ApiError from "../utils/Apierror.js";
 import { asyncHandler } from "../utils/asyncHandler.js"
 import Apiresponse from "../utils/Apiresponse.js"
-
+import fs from "fs"
 
 
 const registerUser = asyncHandler(
@@ -11,8 +11,8 @@ const registerUser = asyncHandler(
         
         const {email, fullName, password, username} = req.body;
 
-        console.log(email);
-        console.log(fullName);
+        // console.log(email);
+        // console.log(fullName);
 
         if(fullName === "")
             throw new ApiError(400, "Full name is required");
@@ -20,44 +20,57 @@ const registerUser = asyncHandler(
             throw new ApiError(402, "Password is required");
         if(email === "")
             throw new ApiError(404, "Email is required");
-        if(username)
-            throw new ApiError(406, "username is required");
+        if(username === "")
+            throw new ApiError(406, "username is required!!");
 
-        const exist = User.findOne(
+        const exist = await User.findOne(
             {
                 $or: [{email},{username}]
             }
         )
 
-        if(exist) 
-            throw new ApiError(408, "User Already Exists");
+        const avatarLocalPath = await req.files?.avatar?.[0]?.path;
+        const coverImageLocalPath = await req.files?.coverImage?.[0]?.path;
+
+        if (exist) {
+            if (avatarLocalPath && fs.existsSync(avatarLocalPath)) {
+                fs.unlinkSync(avatarLocalPath);
+            }
+
+            if (coverImageLocalPath && fs.existsSync(coverImageLocalPath)) {
+                fs.unlinkSync(coverImageLocalPath);
+            }
+
+            throw new ApiError(409, "User Already Exists");
+        }
 
 
-        const avatarLocalPath = req.files?.avatar[0]?.path;
-        const coverImageLocalPath = req.files?.coverImage[0]?.path;
+        
 
         if(!avatarLocalPath)
         {
-            throw new ApiError(400, "Avatar file is requiered");
+            throw new ApiError(400, "Avatar file is requiered!");
         }
 
         const avatar = await uploadOnCloudinary(avatarLocalPath);
         const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
         if(!avatar)
-            throw new ApiError(400, "Avatar file is requiered");
+            throw new ApiError(400, "Avatar file is requiered!!");
 
-        User.create({
+        const user = await User.create({
             fullName,
             password,
             email,
-            username: username.toLowercase(),
+            username: username.toLowerCase(),
             avatar: avatar.url,
             coverImage: coverImage?.url || ""
         })
 
+        const _id = user._id;
 
-        const createdUser = User.findById(_id).select(
+
+        const createdUser = await User.findById(_id).select(
             "-password -refreshToken"
         )
 
