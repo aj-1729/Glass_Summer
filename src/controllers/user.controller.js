@@ -113,7 +113,7 @@ const loginUser = asyncHandler(
         //check the password
         
 
-        const {email, password, password} = req.body;
+        const {email, username, password} = req.body;
 
         if(!username && !email)
         {
