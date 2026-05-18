@@ -11,8 +11,14 @@ const generateRefreshAndAccessToken = async (userId) => {
     try {
         const user = await User.findById(userId);
 
-        accessToken = user.generateAccessToken();
-        refreshToken = user.generateRefreshToken();
+        const accessToken = await user.generateAccessToken();
+        const refreshToken = await user.generateRefreshToken();
+
+        // const accessToken = await user.generateAccessToken();
+        // const refreshToken = await user.generateRefreshToken();
+
+        //console.log("access:", typeof accessToken, accessToken);
+        //console.log("refresh:", typeof refreshToken, refreshToken);
 
         user.refreshToken = refreshToken;
 
@@ -133,7 +139,7 @@ const loginUser = asyncHandler(
 
         const{accessToken, refreshToken} = await generateRefreshAndAccessToken(user._id);
 
-        const loggedInUser = User.findById(user._id).select("-password -refreshToken");
+        const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
         const options = {
             httpOnly: true,
@@ -175,8 +181,8 @@ const logoutUser = asyncHandler(
         }
 
         return res.status(200)
-        .clearCookie("accessToken", accessToken, options)
-        .clearCookie("refreshToken", refreshToken, options)
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
         .json(
             new Apiresponse(200, {}, "User Logged Out!!")
         )
