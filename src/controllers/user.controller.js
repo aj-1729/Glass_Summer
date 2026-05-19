@@ -4,6 +4,7 @@ import ApiError from "../utils/Apierror.js";
 import { asyncHandler } from "../utils/asyncHandler.js"
 import Apiresponse from "../utils/Apiresponse.js"
 import fs from "fs"
+import jwt from "jsonwebtoken"
 
 
 
@@ -31,8 +32,6 @@ const generateRefreshAndAccessToken = async (userId) => {
         throw new ApiError(500, "Something went wrong will generating RAT");
     }
 }
-
-
 
 const registerUser = asyncHandler(
     async (req,res) => {
@@ -193,4 +192,50 @@ const logoutUser = asyncHandler(
     
     
 )
-export {registerUser,loginUser,logoutUser}
+
+const refreshAccessToken = asyncHandler(
+    async(res,req) => {
+        const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+        if(!incomingRefreshToken)
+            throw new ApiError(401, "unauthorized request");
+
+        try {
+            const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+    
+            const user = await User.findById(decodedToken?._id);
+    
+            if(!user)
+                throw new ApiError(402,"Invalid Refresh Token");
+    
+            if(incomingRefreshToken !== user?.refreshToken)
+                throw new ApiError(401, "Refresh Token is expired or used");
+    
+            const options = {
+                httpOnly: true,
+                secure: true
+            }
+    
+            const{accessToken, refreshToken} = await generateRefreshAndAccessToken(user._id);
+    
+    
+            return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", refreshToken, options)
+            .json(
+                new Apiresponse(
+                    200,
+                    {accessToken,refreshToken},
+                    "Access Token is refreshed"
+                )
+            )
+    
+        } catch (error) {
+            throw new ApiError(402, error?.message || "Inavlid Refresh Token");
+        }
+
+
+    }
+)
+export {registerUser,loginUser,logoutUser,refreshAccessToken}
